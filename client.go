@@ -58,36 +58,44 @@ type Brc20BalanceResult struct {
 }
 
 func (uhc *UnisatHttpClient) ListBrc20Balances(address string) (map[string]Brc20BalanceResult, error) {
-	var httpResult struct {
-		Status  string `json:"status"`
-		Message string `json:"message"`
-		Result  struct {
-			List  []Brc20BalanceResult `json:"list"`
-			Total uint64               `json:"total"`
-		} `json:"result"`
-	}
-	_, err := go_http.NewHttpRequester(go_http.WithLogger(go_logger.Logger), go_http.WithTimeout(uhc.timeout)).GetForStruct(go_http.RequestParam{
-		Url: fmt.Sprintf("%s/v3/brc20/tokens", uhc.baseUrl),
-		Params: map[string]interface{}{
-			"address": address,
-			"cursor":  0,
-			"size":    100,
-		},
-		Headers: map[string]interface{}{
-			"X-Client":  "UniSat Wallet",
-			"X-Version": true,
-		},
-	}, &httpResult)
-	if err != nil {
-		return nil, err
-	}
-	if httpResult.Status == "0" {
-		return nil, fmt.Errorf("Get balance error - %s", httpResult.Message)
-	}
-
 	result := make(map[string]Brc20BalanceResult, 0)
-	for _, b := range httpResult.Result.List {
-		result[b.Ticker] = b
+
+	cursor := 0
+	for {
+		size := 100
+		var httpResult struct {
+			Status  string `json:"status"`
+			Message string `json:"message"`
+			Result  struct {
+				List  []Brc20BalanceResult `json:"list"`
+				Total uint64               `json:"total"`
+			} `json:"result"`
+		}
+		_, err := go_http.NewHttpRequester(go_http.WithLogger(go_logger.Logger), go_http.WithTimeout(uhc.timeout)).GetForStruct(go_http.RequestParam{
+			Url: fmt.Sprintf("%s/v3/brc20/tokens", uhc.baseUrl),
+			Params: map[string]interface{}{
+				"address": address,
+				"cursor":  cursor,
+				"size":    size,
+			},
+			Headers: map[string]interface{}{
+				"X-Client":  "UniSat Wallet",
+				"X-Version": true,
+			},
+		}, &httpResult)
+		if err != nil {
+			return nil, err
+		}
+		if httpResult.Status == "0" {
+			return nil, fmt.Errorf("Get balance error - %s", httpResult.Message)
+		}
+		for _, b := range httpResult.Result.List {
+			result[b.Ticker] = b
+		}
+		cursor += size
+		if httpResult.Result.Total < uint64(size) {
+			break
+		}
 	}
 	return result, nil
 }
