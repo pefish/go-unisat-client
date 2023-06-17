@@ -27,3 +27,9 @@ func TestUnisatHttpClient_ListBrc20Balances(t *testing.T) {
 		})
 	}
 }
+
+func TestUnisatHttpClient_GetBrc20Balance(t *testing.T) {
+	uhc := NewUnisatHttpClient(go_logger.Logger, 3*time.Second)
+	got, err := uhc.GetBrc20Balance("bc1qpk0ckhj4wtf6ysvga3tztza503yt0ytxh5lutn", "oich")
+	go_logger.Logger.Info(got, err)
+}

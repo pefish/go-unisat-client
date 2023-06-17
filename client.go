@@ -2,8 +2,10 @@ package btc_rpc_client
 
 import (
 	"fmt"
+	go_error "github.com/pefish/go-error"
 	go_http "github.com/pefish/go-http"
 	go_logger "github.com/pefish/go-logger"
+	"strings"
 	"time"
 )
 
@@ -98,4 +100,39 @@ func (uhc *UnisatHttpClient) ListBrc20Balances(address string) (map[string]Brc20
 		}
 	}
 	return result, nil
+}
+
+type GetBrc20BalanceResult struct {
+	AvailableBalance    string `json:"availableBalance"`
+	OverallBalance      string `json:"overallBalance"`
+	TransferableBalance string `json:"transferableBalance"`
+}
+
+func (uhc *UnisatHttpClient) GetBrc20Balance(address string, symbol string) (*GetBrc20BalanceResult, error) {
+	var result struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+		Result  struct {
+			TokenBalance GetBrc20BalanceResult `json:"tokenBalance"`
+		} `json:"result"`
+	}
+	_, err := go_http.NewHttpRequester(go_http.WithLogger(go_logger.Logger), go_http.WithTimeout(10*time.Second)).GetForStruct(go_http.RequestParam{
+		Url: fmt.Sprintf("%s/v3/brc20/token-summary", uhc.baseUrl),
+		Params: map[string]interface{}{
+			"address": address,
+			"ticker":  strings.ToLower(symbol),
+		},
+		Headers: map[string]interface{}{
+			"X-Client":  "UniSat Wallet",
+			"X-Version": true,
+		},
+	}, &result)
+	if err != nil {
+		return nil, err
+	}
+	if result.Status == "0" {
+		return nil, go_error.Wrap(fmt.Errorf(result.Message))
+	}
+
+	return &result.Result.TokenBalance, nil
 }
